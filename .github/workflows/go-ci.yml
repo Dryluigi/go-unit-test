@@ -1,0 +1,79 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.22", "1.23.x"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Lint (go vet)
+        run: go vet ./...
+
+      - name: Run unit tests with coverage
+        run: |
+          mkdir -p ./.coverage
+          # -race is optional; remove if tests are flaky or slow
+          go test ./... -race -covermode=atomic -coverprofile=.coverage/coverage.out
+
+      - name: Show total coverage and write summary
+        id: cover
+        run: |
+          total=$(go tool cover -func=.coverage/coverage.out | awk '/total:/ {print $3}')
+          echo "total_coverage=$total" >> $GITHUB_OUTPUT
+          {
+            echo "### Coverage Summary"
+            echo ""
+            echo "- Total: **$total**"
+            echo ""
+            echo "\`\`\`"
+            go tool cover -func=.coverage/coverage.out
+            echo "\`\`\`"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Enforce minimum coverage
+        env:
+          MIN_COVERAGE: "60.0" # change this threshold to what you want
+        run: |
+          total=${{ steps.cover.outputs.total_coverage }}
+          # strip trailing % and compare as floats
+          t=${total%\%}
+          awk -v t="$t" -v min="$MIN_COVERAGE" 'BEGIN { if (t+0 < min+0) { exit 1 } }' \
+            || { echo "Coverage $total is below minimum $MIN_COVERAGE%"; exit 1; }
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.go }}
+          path: .coverage/coverage.out
+          if-no-files-found: error
+
+      - name: Upload to Codecov (public repos work tokenless)
+        uses: codecov/codecov-action@v4
+        with:
+          files: .coverage/coverage.out
+          flags: ${{ matrix.go }}
+          fail_ci_if_error: true
+        # If the repo is private, also add:
+        # env:
+        #   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
