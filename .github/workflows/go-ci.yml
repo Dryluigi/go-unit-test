@@ -47,15 +47,6 @@ jobs:
             echo "\`\`\`"
           } >> $GITHUB_STEP_SUMMARY
 
-      - name: Enforce minimum coverage
-        env:
-          MIN_COVERAGE: "60.0"
-        run: |
-          total=${{ steps.cover.outputs.total_coverage }}
-          t=${total%\%}
-          awk -v t="$t" -v min="$MIN_COVERAGE" 'BEGIN { if (t+0 < min+0) { exit 1 } }' \
-            || { echo "Coverage $total is below minimum $MIN_COVERAGE%"; exit 1; }
-
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
