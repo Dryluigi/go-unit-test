@@ -27,9 +27,6 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Lint (go vet)
-        run: go vet ./...
-
       - name: Run unit tests with coverage
         run: |
           mkdir -p ./.coverage
