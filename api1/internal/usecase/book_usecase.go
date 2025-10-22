@@ -30,7 +30,11 @@ func (u *bookUsecase) CreateBook(ctx context.Context, in domain.CreateBookInput)
 		return nil, ErrValidation
 	}
 
-	book, err := u.repo.Create(ctx, in)
+	in2 := domain.CreateBookInput{
+		Title: "YYYYYYYYY",
+		Author: "Mario Prasetya Mulya",
+	}
+	book, err := u.repo.Create(ctx, in2)
 	if err != nil {
 		return nil, err
 	}
